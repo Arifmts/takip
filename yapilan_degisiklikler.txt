@@ -1,0 +1,92 @@
+# Proje: Konum Takip Web Uygulaması
+# Son Güncelleme: 2026-03-20
+
+## Yapılan Değişiklikler
+
+### 1. Mobil Uyumluluk (Responsive Design)
+Tarih: 2026-03-20
+
+**Problem:** Cep telefonunda harita küçük, diğer öğeler büyük görünüyordu.
+
+**Çözüm:**
+- Sidebar mobilde gizlenir hale getirildi
+- Hamburger menü (Menu ikonu) eklendi
+- Mobilde sidebar overlay efektli olarak açılıyor
+- Harita tam ekran genişliğini kullanıyor
+- Viewport ayarları optimize edildi (user-scalable=no)
+- Yatay scroll önlendi
+
+**Değiştirilen Dosyalar:**
+- src/App.jsx: Mobile menu state ve overlay eklendi
+- src/index.css: @media (max-width: 768px) breakpoint'leri eklendi
+- index.html: Viewport meta tag güncellendi
+
+### 2. Git Entegrasyonu
+Tarih: 2026-03-20
+
+- Git repository başlatıldı
+- İlk commit yapıldı
+- GitHub remote eklendi (Arifmts/takip)
+- SSH key oluşturuldu
+- web_app.zip dosyası git'ten kaldırıldı
+
+**Commit Geçmişi:**
+- b936104: feat: add mobile responsive design for location tracking app
+- c4c6954: chore: remove large zip file from tracking
+
+---
+
+## Teknik Detaylar
+
+### CSS Değişiklikleri (src/index.css)
+
+```css
+/* 768px ve altı için mobil stil */
+@media (max-width: 768px) {
+  .app-container { flex-direction: column; }
+  .sidebar { 
+    position: fixed; 
+    transform: translateX(-100%);
+    width: 85%;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { padding: 16px; }
+  .map-section { flex: 1; min-height: 300px; }
+  .mobile-menu-btn { display: flex; }
+}
+```
+
+### JSX Değişiklikleri (src/App.jsx)
+
+```jsx
+// State eklendi
+const [sidebarOpen, setSidebarOpen] = useState(false);
+
+// Overlay ve conditional sidebar
+{sidebarOpen && (
+  <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+)}
+<aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+
+// Hamburger menü butonu
+<button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
+  <Menu size={24} />
+</button>
+```
+
+### HTML Değişiklikleri (index.html)
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Konum Takip</title>
+```
+
+---
+
+## Kullanılan Teknolojiler
+- React 19
+- Vite
+- Leaflet / React-Leaflet
+- Firebase Firestore
+- Lucide React (ikonlar)
+- date-fns
