@@ -654,6 +654,35 @@ body {
   background: #4338ca;
 }
 
+.btn-delete {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover {
+  background: #b91c1c;
+}
+
+.delete-header {
+  background: #fef2f2;
+}
+
+.delete-header h3 {
+  color: #dc2626;
+}
+
+.edit-nickname-btn.delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 @media (max-width: 768px) {
   .modal-content {
     margin: 16px;

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import MapComponent from './components/MapComponent';
 import HistoryPanel from './components/HistoryPanel';
-import { History, Target, Pencil, Menu, Settings, X } from 'lucide-react';
+import { History, Target, Pencil, Menu, Settings, X, Trash2 } from 'lucide-react';
 import { db } from './firebase';
-import { collection, query, onSnapshot, orderBy, doc, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, doc, setDoc, deleteDoc, where, getDocs, writeBatch } from 'firebase/firestore';
 
 function SettingsForm({ deviceId, config, onSave, onCancel }) {
   const [distanceFilter, setDistanceFilter] = useState(config.distanceFilter || 10);
@@ -54,6 +54,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [focusedLocation, setFocusedLocation] = useState(null);
   const [allLocations, setAllLocations] = useState([]);
+  const [deleteConfirmDevice, setDeleteConfirmDevice] = useState(null);
 
   useEffect(() => {
     if (!db) return;
@@ -152,6 +153,28 @@ function App() {
     setFocusedLocation(loc);
   };
 
+  const handleDeleteHistory = async (deviceId) => {
+    if (!window.confirm(`"${nicknames[deviceId] || deviceId}" cihazının tüm konum geçmişini silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    
+    try {
+      const q = query(collection(db, 'locations'), where('deviceId', '==', deviceId));
+      const snapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      snapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      
+      await batch.commit();
+      setDeleteConfirmDevice(null);
+    } catch (error) {
+      console.error("Geçmiş silinirken hata:", error);
+      alert("Geçmiş silinemedi. Lütfen tekrar deneyin.");
+    }
+  };
+
   const deviceLocations = selectedDevice 
     ? allLocations.filter(loc => loc.deviceId === selectedDevice)
     : [];
@@ -204,6 +227,13 @@ function App() {
                     title="Ayarlar"
                   >
                     <Settings size={14} />
+                  </button>
+                  <button 
+                    className="edit-nickname-btn delete-btn"
+                    onClick={() => setDeleteConfirmDevice(device)}
+                    title="Geçmişi Sil"
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </li>
@@ -326,6 +356,34 @@ function App() {
                 onSave={handleSaveSettings}
                 onCancel={() => setSettingsOpen(false)}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmDevice && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmDevice(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header delete-header">
+              <h3>Geçmişi Sil</h3>
+              <button className="modal-close" onClick={() => setDeleteConfirmDevice(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-device-name">{nicknames[deleteConfirmDevice] || deleteConfirmDevice}</p>
+              <p style={{marginTop: '16px', color: '#dc2626', fontSize: '0.9rem'}}>
+                ⚠️ Bu cihazın tüm konum geçmişi silinecek. Bu işlem geri alınamaz!
+              </p>
+              <div className="form-actions" style={{marginTop: '24px'}}>
+                <button className="btn-cancel" onClick={() => setDeleteConfirmDevice(null)}>
+                  İptal
+                </button>
+                <button className="btn-delete" onClick={() => handleDeleteHistory(deleteConfirmDevice)}>
+                  Sil
+                </button>
+              </div>
             </div>
           </div>
         </div>
