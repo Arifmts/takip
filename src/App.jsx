@@ -136,12 +136,11 @@ function App() {
             <button 
               className="mobile-menu-btn"
               onClick={() => setSidebarOpen(true)}
-              style={{ display: 'none' }}
             >
-              <Menu size={24} />
+              <Menu size={20} />
             </button>
             <h2 className="topbar-title">
-              {isHistoryMode ? 'Güzergah Analizi' : 'Canlı Takip'}
+              {isHistoryMode ? 'Güzergah' : 'Canlı Takip'}
             </h2>
           </div>
           <div className="user-profile">
@@ -157,6 +156,29 @@ function App() {
             nicknames={nicknames}
           />
         </section>
+
+        {/* Mobile Device Selector */}
+        <div className="mobile-device-selector">
+          <button 
+            className={`history-toggle-btn ${isHistoryMode ? 'active' : ''}`}
+            onClick={() => setIsHistoryMode(!isHistoryMode)}
+          >
+            <History size={16} />
+          </button>
+          {devices.slice(0, 4).map((device) => (
+            <button
+              key={device}
+              className={`mobile-device-chip ${selectedDevice === device && !isHistoryMode ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedDevice(device);
+                setIsHistoryMode(false);
+              }}
+            >
+              <span className="status-dot"></span>
+              {nicknames[device] || device.substring(0, 8)}...
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
