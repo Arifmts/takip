@@ -5,6 +5,7 @@ import { collection, query, orderBy, onSnapshot, limit, where } from 'firebase/f
 import { db } from '../firebase';
 import L from 'leaflet';
 import { format } from 'date-fns';
+import { RefreshCw } from 'lucide-react';
 
 // Haritayı son konuma odaklamak için yardımcı bileşen
 function RecenterMap({ position }) {
@@ -27,6 +28,14 @@ L.Icon.Default.mergeOptions({
 
 function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
   const [locations, setLocations] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setRefreshKey(prev => prev + 1);
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   useEffect(() => {
     if (!db || !selectedDevice) return;
@@ -57,7 +66,7 @@ function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
     });
 
     return () => unsubscribe();
-  }, [selectedDevice]);
+  }, [selectedDevice, refreshKey]);
 
   const center = locations.length > 0 
     ? [locations[locations.length - 1].lat, locations[locations.length - 1].lng] 
@@ -70,6 +79,13 @@ function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
 
   return (
     <div className="map-wrapper">
+      <button 
+        className={`refresh-btn ${isRefreshing ? 'spinning' : ''}`}
+        onClick={handleRefresh}
+        title="Konumu Yenile"
+      >
+        <RefreshCw size={18} />
+      </button>
       <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '16px' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

@@ -338,6 +338,40 @@ body {
 .map-wrapper {
   width: 100%;
   height: 100%;
+  position: relative;
+}
+
+.refresh-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  transform: scale(1.05);
+}
+
+.refresh-btn.spinning svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {
