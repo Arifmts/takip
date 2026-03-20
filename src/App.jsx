@@ -154,17 +154,31 @@ function App() {
   };
 
   const handleDeleteHistory = async (deviceId) => {
-    if (!window.confirm(`"${nicknames[deviceId] || deviceId}" cihazının tüm konum geçmişini silmek istediğinize emin misiniz?`)) {
+    if (!window.confirm(`"${nicknames[deviceId] || deviceId}" cihazının geçmişini silmek istediğinize emin misiniz?\n\n(En son konum korunacak)`)) {
       return;
     }
     
     try {
-      const q = query(collection(db, 'locations'), where('deviceId', '==', deviceId));
+      const q = query(
+        collection(db, 'locations'), 
+        where('deviceId', '==', deviceId),
+        orderBy('timestamp', 'desc')
+      );
       const snapshot = await getDocs(q);
       
+      if (snapshot.size <= 1) {
+        alert("Silinecek yeterli geçmiş yok.");
+        setDeleteConfirmDevice(null);
+        return;
+      }
+      
       const batch = writeBatch(db);
-      snapshot.forEach((docSnap) => {
-        batch.delete(docSnap.ref);
+      let deletedCount = 0;
+      snapshot.forEach((docSnap, index) => {
+        if (index > 0) {
+          batch.delete(docSnap.ref);
+          deletedCount++;
+        }
       });
       
       await batch.commit();
@@ -374,7 +388,8 @@ function App() {
             <div className="modal-body">
               <p className="modal-device-name">{nicknames[deleteConfirmDevice] || deleteConfirmDevice}</p>
               <p style={{marginTop: '16px', color: '#dc2626', fontSize: '0.9rem'}}>
-                ⚠️ Bu cihazın tüm konum geçmişi silinecek. Bu işlem geri alınamaz!
+                ⚠️ Bu cihazın geçmişi silinecek.<br/>
+                En son konum korunacak. Bu işlem geri alınamaz!
               </p>
               <div className="form-actions" style={{marginTop: '24px'}}>
                 <button className="btn-cancel" onClick={() => setDeleteConfirmDevice(null)}>
