@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { collection, query, orderBy, onSnapshot, limit, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, limit, where, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import L from 'leaflet';
 import { format } from 'date-fns';
@@ -31,9 +31,21 @@ function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setRefreshKey(prev => prev + 1);
+    
+    if (selectedDevice) {
+      try {
+        await setDoc(doc(db, 'commands', selectedDevice), {
+          request_location: true,
+          timestamp: new Date(),
+        }, { merge: true });
+        console.log('Konum isteği gönderildi!');
+      } catch (error) {
+        console.error('Komut gönderme hatası:', error);
+      }
+    }
+    
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
