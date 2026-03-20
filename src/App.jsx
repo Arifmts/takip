@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MapComponent from './components/MapComponent';
+import HistoryPanel from './components/HistoryPanel';
 import { History, Target, Pencil, Menu, Settings, X } from 'lucide-react';
 import { db } from './firebase';
 import { collection, query, onSnapshot, orderBy, doc, setDoc } from 'firebase/firestore';
@@ -50,6 +51,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deviceConfig, setDeviceConfig] = useState({});
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [focusedLocation, setFocusedLocation] = useState(null);
+  const [allLocations, setAllLocations] = useState([]);
 
   useEffect(() => {
     if (!db) return;
@@ -57,12 +61,23 @@ function App() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const uniqueDevices = new Set();
-      snapshot.forEach((doc) => {
-        const dId = doc.data().deviceId;
-        if (dId) uniqueDevices.add(dId);
+      const locations = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.latitude && data.longitude) {
+          locations.push({
+            id: docSnap.id,
+            lat: data.latitude,
+            lng: data.longitude,
+            time: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(),
+            deviceId: data.deviceId
+          });
+        }
+        if (data.deviceId) uniqueDevices.add(data.deviceId);
       });
       const deviceList = Array.from(uniqueDevices);
       setDevices(deviceList);
+      setAllLocations(locations.sort((a, b) => a.time - b.time));
       
       if (!selectedDevice && deviceList.length > 0) {
         setSelectedDevice(deviceList[0]);
@@ -133,6 +148,14 @@ function App() {
     }
   };
 
+  const handleLocationSelect = (loc) => {
+    setFocusedLocation(loc);
+  };
+
+  const deviceLocations = selectedDevice 
+    ? allLocations.filter(loc => loc.deviceId === selectedDevice)
+    : [];
+
   return (
     <div className="app-container">
       {sidebarOpen && (
@@ -156,6 +179,8 @@ function App() {
                 onClick={() => {
                   setSelectedDevice(device);
                   setIsHistoryMode(false);
+                  setSelectedDate(null);
+                  setFocusedLocation(null);
                 }}
               >
                 <div className="device-info">
@@ -191,7 +216,10 @@ function App() {
           <h3>İŞLEMLER</h3>
           <button 
             className={`btn-secondary ${isHistoryMode ? 'active-btn' : ''}`}
-            onClick={() => setIsHistoryMode(!isHistoryMode)}
+            onClick={() => {
+              setIsHistoryMode(!isHistoryMode);
+              if (!isHistoryMode) setSelectedDate(null);
+            }}
           >
             <History size={16} />
             Konum Geçmişini Göster
@@ -234,14 +262,31 @@ function App() {
             selectedDevice={selectedDevice} 
             isHistoryMode={isHistoryMode} 
             nicknames={nicknames}
+            selectedDate={selectedDate}
+            focusedLocation={focusedLocation}
+            locations={deviceLocations}
           />
         </section>
+
+        {isHistoryMode && (
+          <section className="history-section">
+            <HistoryPanel 
+              locations={deviceLocations}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              onLocationSelect={handleLocationSelect}
+            />
+          </section>
+        )}
 
         {/* Mobile Device Selector */}
         <div className="mobile-device-selector">
           <button 
             className={`history-toggle-btn ${isHistoryMode ? 'active' : ''}`}
-            onClick={() => setIsHistoryMode(!isHistoryMode)}
+            onClick={() => {
+              setIsHistoryMode(!isHistoryMode);
+              if (!isHistoryMode) setSelectedDate(null);
+            }}
           >
             <History size={16} />
           </button>
@@ -252,6 +297,8 @@ function App() {
               onClick={() => {
                 setSelectedDevice(device);
                 setIsHistoryMode(false);
+                setSelectedDate(null);
+                setFocusedLocation(null);
               }}
             >
               <span className="status-dot"></span>

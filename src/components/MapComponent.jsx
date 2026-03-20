@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { collection, query, orderBy, onSnapshot, limit, where, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import L from 'leaflet';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { RefreshCw } from 'lucide-react';
 
 // Haritayı son konuma odaklamak için yardımcı bileşen
@@ -26,8 +26,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
-  const [locations, setLocations] = useState([]);
+function MapComponent({ selectedDevice, isHistoryMode, nicknames = {}, selectedDate, focusedLocation, locations = [] }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -49,45 +48,31 @@ function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
-  useEffect(() => {
-    if (!db || !selectedDevice) return;
+  // Tarihe göre filtrele
+  const filteredLocations = selectedDate 
+    ? locations.filter(loc => isSameDay(new Date(loc.time), new Date(selectedDate)))
+    : locations;
 
-    const q = query(
-      collection(db, 'locations'), 
-      where('deviceId', '==', selectedDevice),
-      orderBy('timestamp', 'desc'), 
-      limit(100)
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const locs = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.latitude && data.longitude) {
-          locs.push({
-            id: doc.id,
-            lat: data.latitude,
-            lng: data.longitude,
-            time: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(),
-            deviceId: data.deviceId
-          });
-        }
-      });
-      // Zaman sırasına göre diz (Polyline ve Marker sırası için)
-      setLocations(locs.sort((a, b) => a.time - b.time));
-    });
+  // Center hesapla - önce focusedLocation, sonra tarih filtresi, sonra son konum
+  const mapCenter = (() => {
+    if (focusedLocation) {
+      return [focusedLocation.lat, focusedLocation.lng];
+    }
+    if (filteredLocations.length > 0) {
+      return [filteredLocations[filteredLocations.length - 1].lat, filteredLocations[filteredLocations.length - 1].lng];
+    }
+    return [39.92077, 32.85411];
+  })();
 
-    return () => unsubscribe();
-  }, [selectedDevice, refreshKey]);
+  const polyline = filteredLocations.map(loc => [loc.lat, loc.lng]);
 
-  const center = locations.length > 0 
-    ? [locations[locations.length - 1].lat, locations[locations.length - 1].lng] 
-    : [39.92077, 32.85411];
+  // Visible locations - canlı modda sadece son, geçmiş modunda filtrelenmiş
+  const visibleLocations = isHistoryMode 
+    ? filteredLocations 
+    : (locations.length > 0 ? [locations[locations.length - 1]] : []);
 
-  const polyline = locations.map(loc => [loc.lat, loc.lng]);
-
-  // Canlı modda sadece son konumu gösteriyoruz, Geçmiş modunda hepsini
-  const visibleLocations = isHistoryMode ? locations : (locations.length > 0 ? [locations[locations.length - 1]] : []);
+  // Marker zoom seviyesi
+  const markerZoom = focusedLocation ? 18 : 15;
 
   return (
     <div className="map-wrapper">
@@ -98,25 +83,25 @@ function MapComponent({ selectedDevice, isHistoryMode, nicknames = {} }) {
       >
         <RefreshCw size={18} />
       </button>
-      <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%', borderRadius: '16px' }}>
+      <MapContainer center={mapCenter} zoom={markerZoom} style={{ height: '100%', width: '100%', borderRadius: '16px' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
-        <RecenterMap position={center} />
+        <RecenterMap position={mapCenter} />
         {visibleLocations.map((loc, index) => (
           <Marker key={loc.id} position={[loc.lat, loc.lng]}>
             <Popup>
               <div className="popup-content">
                 <strong>Cihaz:</strong> {nicknames[loc.deviceId] || loc.deviceId || 'Bilinmiyor'} <br/>
-                <strong>Zaman:</strong> {format(loc.time, 'dd MMM yyyy HH:mm:ss')} <br/>
+                <strong>Zaman:</strong> {format(new Date(loc.time), 'dd MMM yyyy HH:mm:ss')} <br/>
                 {(isHistoryMode && index === visibleLocations.length - 1) && <span className="current-badge">Son Konum</span>}
                 {!isHistoryMode && <span className="current-badge">Canlı Konum</span>}
               </div>
             </Popup>
           </Marker>
         ))}
-        {isHistoryMode && locations.length > 1 && (
+        {isHistoryMode && filteredLocations.length > 1 && (
           <Polyline positions={polyline} color="#4F46E5" weight={4} opacity={0.7} />
         )}
       </MapContainer>
