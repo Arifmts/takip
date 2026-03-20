@@ -1,8 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import MapComponent from './components/MapComponent';
-import { History, Target, Pencil, Menu } from 'lucide-react';
+import { History, Target, Pencil, Menu, Settings, X } from 'lucide-react';
 import { db } from './firebase';
 import { collection, query, onSnapshot, orderBy, doc, setDoc } from 'firebase/firestore';
+
+function SettingsForm({ deviceId, config, onSave, onCancel }) {
+  const [distanceFilter, setDistanceFilter] = useState(config.distanceFilter || 10);
+  const [timeLimit, setTimeLimit] = useState(config.timeLimit || 30);
+
+  return (
+    <div className="settings-form">
+      <div className="form-group">
+        <label>Mesafe Filtresi (metre)</label>
+        <input 
+          type="number" 
+          value={distanceFilter}
+          onChange={e => setDistanceFilter(e.target.value)}
+          min="1"
+          max="1000"
+        />
+        <span className="form-hint">Cihaz hareket ettiğinde konum gönder</span>
+      </div>
+      <div className="form-group">
+        <label>Zaman Limiti (saniye)</label>
+        <input 
+          type="number" 
+          value={timeLimit}
+          onChange={e => setTimeLimit(e.target.value)}
+          min="10"
+          max="3600"
+        />
+        <span className="form-hint">Maksimum süre (0 = sınırsız)</span>
+      </div>
+      <div className="form-actions">
+        <button className="btn-cancel" onClick={onCancel}>İptal</button>
+        <button className="btn-save" onClick={() => onSave(deviceId, distanceFilter, timeLimit)}>
+          Kaydet
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -10,6 +48,8 @@ function App() {
   const [devices, setDevices] = useState([]);
   const [nicknames, setNicknames] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deviceConfig, setDeviceConfig] = useState({});
 
   useEffect(() => {
     if (!db) return;
@@ -44,6 +84,37 @@ function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Cihaz ayarlarını dinle
+  useEffect(() => {
+    if (!db) return;
+    const unsubscribe = onSnapshot(collection(db, 'device_config'), (snapshot) => {
+      const configs = {};
+      snapshot.forEach((doc) => {
+        configs[doc.id] = doc.data();
+      });
+      setDeviceConfig(configs);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleOpenSettings = (device) => {
+    setSelectedDevice(device);
+    setSettingsOpen(true);
+  };
+
+  const handleSaveSettings = async (deviceId, distanceFilter, timeLimit) => {
+    try {
+      await setDoc(doc(db, 'device_config', deviceId), {
+        distanceFilter: parseInt(distanceFilter),
+        timeLimit: parseInt(timeLimit) || null,
+        updatedAt: new Date()
+      }, { merge: true });
+      setSettingsOpen(false);
+    } catch (error) {
+      console.error("Ayarlar kaydedilemedi:", error);
+    }
+  };
 
   const handleEditNickname = async (e, deviceId) => {
     e.stopPropagation();
@@ -94,13 +165,22 @@ function App() {
                     {nicknames[device] && <span className="device-id-sub">{device}</span>}
                   </div>
                 </div>
-                <button 
-                  className="edit-nickname-btn"
-                  onClick={(e) => handleEditNickname(e, device)}
-                  title="Takma ismi düzenle"
-                >
-                  <Pencil size={14} />
-                </button>
+                <div style={{display: 'flex', gap: '4px'}}>
+                  <button 
+                    className="edit-nickname-btn"
+                    onClick={(e) => handleEditNickname(e, device)}
+                    title="Takma ismi düzenle"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button 
+                    className="edit-nickname-btn"
+                    onClick={() => handleOpenSettings(device)}
+                    title="Ayarlar"
+                  >
+                    <Settings size={14} />
+                  </button>
+                </div>
               </li>
             ))}
             {devices.length === 0 && <li className="hint">Cihaz aranıyor...</li>}
@@ -180,6 +260,29 @@ function App() {
           ))}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {settingsOpen && selectedDevice && (
+        <div className="modal-overlay" onClick={() => setSettingsOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Cihaz Ayarları</h3>
+              <button className="modal-close" onClick={() => setSettingsOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-device-name">{nicknames[selectedDevice] || selectedDevice}</p>
+              <SettingsForm 
+                deviceId={selectedDevice}
+                config={deviceConfig[selectedDevice] || {}}
+                onSave={handleSaveSettings}
+                onCancel={() => setSettingsOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
