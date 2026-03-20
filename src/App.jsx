@@ -161,8 +161,7 @@ function App() {
     try {
       const q = query(
         collection(db, 'locations'), 
-        where('deviceId', '==', deviceId),
-        orderBy('timestamp', 'desc')
+        where('deviceId', '==', deviceId)
       );
       const snapshot = await getDocs(q);
       
@@ -172,17 +171,24 @@ function App() {
         return;
       }
       
-      const batch = writeBatch(db);
-      let deletedCount = 0;
-      snapshot.forEach((docSnap, index) => {
-        if (index > 0) {
-          batch.delete(docSnap.ref);
-          deletedCount++;
-        }
+      const docs = [];
+      snapshot.forEach((docSnap) => {
+        docs.push({
+          ref: docSnap.ref,
+          time: docSnap.data().timestamp?.toMillis() || 0
+        });
       });
+      
+      docs.sort((a, b) => b.time - a.time);
+      
+      const batch = writeBatch(db);
+      for (let i = 1; i < docs.length; i++) {
+        batch.delete(docs[i].ref);
+      }
       
       await batch.commit();
       setDeleteConfirmDevice(null);
+      alert("Geçmiş başarıyla silindi!");
     } catch (error) {
       console.error("Geçmiş silinirken hata:", error);
       alert("Geçmiş silinemedi. Lütfen tekrar deneyin.");
